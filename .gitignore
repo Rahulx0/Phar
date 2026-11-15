@@ -1,0 +1,25 @@
+# Environment / secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Local databases and backups
+*.db
+backups/
+
+# TLS certificates (self-signed, machine-local)
+deploy/certs/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

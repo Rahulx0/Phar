@@ -1,0 +1,194 @@
+# CI/CD pipeline for the Pharmacy Management Platform.
+#
+#   quality  -> ruff format/lint + pytest against a real Postgres service
+#   build    -> multi-stage image build, Trivy vulnerability scan,
+#               push to GHCR with immutable SHA tag (pushes only on main/tags)
+#   smoke    -> boot the freshly pushed image with Postgres and verify
+#               /health, /ready and the API end-to-end (deployment rehearsal)
+#
+# No personal tokens: GHCR push uses the short-lived, job-scoped
+# GITHUB_TOKEN, so the pipeline holds no long-lived credentials.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  POSTGRES_USER: pharmacy
+  POSTGRES_PASSWORD: pharmacy
+  POSTGRES_DB: pharmacy_test
+
+jobs:
+  quality:
+    name: Lint & tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pharmacy
+          POSTGRES_PASSWORD: pharmacy
+          POSTGRES_DB: pharmacy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pharmacy"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://pharmacy:pharmacy@localhost:5432/pharmacy_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project + dev tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .[dev]
+
+      - name: Format check (ruff)
+        run: ruff format --check .
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Tests (pytest against Postgres service)
+        run: pytest -v
+
+  build:
+    name: Build, scan & push image
+    needs: quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set lowercase GHCR image name
+        id: image
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: echo "name=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Compute image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build image (loaded locally for scanning)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          build-args: APP_VERSION=${{ steps.meta.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Vulnerability scan (Trivy, fail on fixable HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.image.outputs.name }}:${{ steps.meta.outputs.version }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+      - name: Push scanned image to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: APP_VERSION=${{ steps.meta.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  smoke:
+    name: Deployment smoke test
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pharmacy
+          POSTGRES_PASSWORD: pharmacy
+          POSTGRES_DB: pharmacy
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pharmacy"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run the pushed image against Postgres
+        run: |
+          docker run -d --name app --network host \
+            -e DATABASE_URL=postgresql://pharmacy:pharmacy@localhost:5432/pharmacy \
+            ghcr.io/${GITHUB_REPOSITORY,,}:${{ needs.build.outputs.image_tag }}
+
+      - name: Verify health, readiness and API through the container
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health; then break; fi
+            sleep 2
+          done
+          curl -fsS http://localhost:8000/ready
+          curl -fsS http://localhost:8000/medicines | grep -q Paracetamol \
+            && echo "OK: seeded catalogue served"
+
+      - name: Show application logs (evidence for the run page)
+        if: always()
+        run: docker logs app
