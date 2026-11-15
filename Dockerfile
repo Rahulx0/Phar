@@ -1,18 +1,25 @@
 # ---------- Stage 1: build a self-contained virtualenv ----------
 # Build tools and pip cache never reach the final image.
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim-bookworm AS builder
 
 WORKDIR /build
 COPY pyproject.toml ./
 COPY app ./app
 
 RUN python -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
-    && /opt/venv/bin/pip install --no-cache-dir .
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip 'setuptools>=78.1.1' \
+    && /opt/venv/bin/pip install --no-cache-dir . \
+    && /opt/venv/bin/python -m pip uninstall -y pip setuptools
     # ^ installs the app package + declared dependencies into the venv only
 
 # ---------- Stage 2: minimal runtime ----------
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m pip uninstall -y setuptools \
+    && python -m pip uninstall -y pip
 
 ARG APP_VERSION=dev
 LABEL org.opencontainers.image.title="pharmacy-api" \
