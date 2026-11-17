@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="280" viewBox="0 0 1200 280" role="img" aria-label="Pharmacy Management Platform — medicine, batch and stock-movement API">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="55%" stop-color="#101c33"/>
+      <stop offset="100%" stop-color="#0d1a2e"/>
+    </linearGradient>
+    <linearGradient id="pillA" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2dd4bf"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
+    </linearGradient>
+    <linearGradient id="pillB" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#27496f"/>
+    </linearGradient>
+    <clipPath id="capsuleClip">
+      <rect x="1000" y="120" width="132" height="56" rx="28"/>
+    </clipPath>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+    <style>
+      .t { font-family: Inter, 'Segoe UI', Helvetica, Arial, sans-serif; }
+      .eyebrow { font-size: 13px; letter-spacing: 3.4px; fill: #2dd4bf; font-weight: 600; }
+      .title { font-size: 44px; font-weight: 700; fill: #eef4ff; letter-spacing: -0.6px; }
+      .sub { font-size: 19px; fill: #9fb0cc; }
+      .pilltext { font-size: 14.5px; font-weight: 500; fill: #c7d6ee; }
+      .plus { font-size: 22px; fill: #24395c; font-weight: 700; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="280" rx="18" fill="url(#bg)"/>
+  <rect width="1200" height="280" rx="18" fill="none" stroke="#22344f" stroke-width="1.5"/>
+
+  <!-- ambient glow behind the capsule -->
+  <circle cx="1066" cy="148" r="150" fill="url(#glow)"/>
+
+  <!-- faint medical crosses -->
+  <text class="t plus" x="906" y="72">+</text>
+  <text class="t plus" x="1170" y="242">+</text>
+  <text class="t plus" x="962" y="252">+</text>
+
+  <!-- capsule mark -->
+  <g>
+    <rect x="1000" y="120" width="132" height="56" rx="28" fill="url(#pillB)" stroke="#3b5c86" stroke-width="1.5"/>
+    <g clip-path="url(#capsuleClip)">
+      <rect x="1000" y="120" width="66" height="56" fill="url(#pillA)" opacity="0.92"/>
+      <rect x="1066" y="120" width="4" height="56" fill="#0b1220" opacity="0.55"/>
+    </g>
+    <rect x="1000" y="120" width="132" height="56" rx="28" fill="none" stroke="#3b5c86" stroke-width="1.5"/>
+  </g>
+
+  <text class="t eyebrow" x="72" y="82">DEVOPS ASSESSMENT</text>
+  <text class="t title" x="72" y="134">Pharmacy Management Platform</text>
+  <text class="t sub" x="72" y="168">Medicine, batch and stock-movement API — built, shipped and operated like production.</text>
+
+  <!-- technology pills -->
+  <g class="t pilltext">
+    <rect x="72" y="196" width="96" height="34" rx="17" fill="#132441" stroke="#2b4368"/>
+    <text x="120" y="218" text-anchor="middle">FastAPI</text>
+
+    <rect x="180" y="196" width="146" height="34" rx="17" fill="#132441" stroke="#2b4368"/>
+    <text x="253" y="218" text-anchor="middle">PostgreSQL 16</text>
+
+    <rect x="338" y="196" width="154" height="34" rx="17" fill="#132441" stroke="#2b4368"/>
+    <text x="415" y="218" text-anchor="middle">Docker Compose</text>
+
+    <rect x="504" y="196" width="154" height="34" rx="17" fill="#132441" stroke="#2b4368"/>
+    <text x="581" y="218" text-anchor="middle">GitHub Actions</text>
+
+    <rect x="670" y="196" width="122" height="34" rx="17" fill="#132441" stroke="#2b4368"/>
+    <text x="731" y="218" text-anchor="middle">Trivy gate</text>
+  </g>
+</svg>
